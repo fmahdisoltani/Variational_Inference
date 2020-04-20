@@ -32,31 +32,30 @@ class MCElbo(torch.nn.Module):
         self.p_fn = lambda t: log_gmm(t, self.p_means, self.softplus(self.p_stds), self.p_log_pais)
 
 
-        self.likelihood_mean = torch.tensor([4.])
-        self.likelihood_s = torch.tensor([1.])
+        # self.likelihood_mean = torch.tensor([4.])
+        self.likelihood_s = torch.tensor([5.5])
         self.likelihood_log_pais = torch.log(torch.tensor([1.]))
 
-        self.likelihood_fn = lambda t: log_gmm(t, self.likelihood_mean, self.likelihood_s, self.likelihood_log_pais)
+        # self.likelihood_fn = lambda t: log_gmm(t, self.likelihood_mean, self.likelihood_s, self.likelihood_log_pais)
 
 
-    def generate_rand(self):
-        return np.random.normal(size=(self.n_latent, 1))
 
     def compute_elbo(self, x, t):
         elbo = 0
         for c in range(len(self.q_means)):
             z = gaussian_sample(self.q_means[c], self.softplus(self.q_stds[c]), self.num_samples[c])
 
-            q_dist = torch.mean(self.q_fn(z))
+            q_likelihood = torch.mean(self.q_fn(z))
             prior = torch.mean(self.p_fn(z))
             # likelihood = torch.mean(torch.sum(log_gaussian(t,z.T * x, self.likelihood_s), 0))
             # likelihood2 = torch.mean(torch.sum(log_gmm(t, [z.T * x ], [self.likelihood_s], self.likelihood_log_pai), 1))
-            log_likelihood1 = torch.mean(self.likelihood_fn(z))
-            log_likelihood2 = torch.mean(
-                log_gmm(t, [z.T * x], self.likelihood_s,
-                        self.likelihood_log_pais))
-            log_likelihood = log_likelihood1
-            elbo_c = q_dist - prior - log_likelihood
+            # log_likelihood1 = torch.mean(self.likelihood_fn(z))
+            log_likelihood2 = torch.mean(torch.sum(log_gmm(t, [z.T * x], self.likelihood_s,
+                        self.likelihood_log_pais), 1))
+            # likelihood = torch.mean(torch.sum(log_norm(t, x * z.T,
+            #                                            self.likelihood_s), 0))
+            log_likelihood = log_likelihood2
+            elbo_c = q_likelihood - prior - log_likelihood
             elbo += elbo_c * self.softmax(self.q_log_pais)[c]
 
         return elbo
@@ -118,11 +117,11 @@ if __name__ == '__main__':
     # plt.legend()
     # plt.show()
 
-    wn = torch.arange(-4., 5.5, 0.0001)
-    log_likelihood1 = mcelbo.likelihood_fn(wn)
-    # log_likelihood2 = torch.sum(log_gmm(t, [torch.tensor(wn) * x],
-    #                                    mcelbo.likelihood_s, mcelbo.likelihood_log_pais), 1)
-    log_likelihood = log_likelihood1
+    wn = torch.arange(1., 3.5 , 0.0001)
+    # log_likelihood1 = mcelbo.likelihood_fn(wn)
+    log_likelihood2 = torch.sum(log_gmm(t, [torch.tensor(wn) * x],
+                                       mcelbo.likelihood_stds, mcelbo.likelihood_log_pais), 1)
+    log_likelihood = log_likelihood2
     log_prior = mcelbo.p_fn(wn)
 
     log_true_posterior = log_likelihood + log_prior
@@ -135,6 +134,6 @@ if __name__ == '__main__':
     posterior = torch.exp(mcelbo.q_fn(wn))
     plt.plot(wn, posterior.detach() / torch.sum(posterior.detach()), '--',
              linewidth=3, label="GMM")
-
+    # plt.plot(wn, torch.exp(log_likelihood))
     plt.legend()
     plt.show()

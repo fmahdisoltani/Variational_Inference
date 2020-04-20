@@ -1,6 +1,6 @@
 import torch
 from distributions import log_gmm
-from sampling import gmm_sample, gaussian_sample
+from sampling import gaussian_sample
 import matplotlib.pyplot as plt
 
 num_components = 2
@@ -22,18 +22,17 @@ class MCElbo(torch.nn.Module):
         self.p_fn = lambda t: log_gmm(t, self.p_means, self.softplus(self.p_stds), self.p_log_pais)
 
         self.likelihood_mean = torch.tensor([-2., 2.])
-        self.likelihood_s = torch.tensor([-.8, .8])
+        self.likelihood_s = torch.tensor([.8, .8])
         self.likelihood_log_pais = torch.log(torch.tensor([.5, .5]))
-
         self.likelihood_fn = lambda t: log_gmm(t, self.likelihood_mean, self.likelihood_s, self.likelihood_log_pais)
 
     def compute_loss(self):
         elbo = 0
         for c in range(num_components):
-            c = torch.randint(0, 2, [1])
-            print(c)
+            # c = torch.randint(0, 2, [1])
             z = gaussian_sample(self.q_means[c], self.softplus(self.q_stds[c]), self.num_samples[c])
             q_likelihood = torch.mean(self.q_fn(z))
+
             prior = torch.mean(self.p_fn(z))
             likelihood = torch.mean(self.likelihood_fn(z))
             # elbo_c = q_likelihood - prior  # KL divergence
@@ -52,7 +51,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam([
         {'params': [mcelbo.q_log_pais, mcelbo.q_means, mcelbo.q_stds], 'lr': 0.0002}])
 
-    for i in range(8000):
+    for i in range(2000):
         loss = mcelbo.compute_loss()
         optimizer.zero_grad()
         loss.backward(retain_graph=True)
@@ -60,12 +59,11 @@ if __name__ == '__main__':
 
         if i % 250 == 0:
             print(loss)
-            print(i, mcelbo.q_means.data.numpy(), mcelbo.q_stds.data.numpy(), mcelbo.softmax(mcelbo.q_log_pais).data.numpy())
-            print(i, mcelbo.p_means.data.numpy(), mcelbo.p_stds.data.numpy(), mcelbo.softmax(mcelbo.p_log_pais).data.numpy())
+            print(i, mcelbo.q_means.data.numpy(), mcelbo.q_stds.data.numpy(),
+                  mcelbo.softmax(mcelbo.q_log_pais).data.numpy())
 
     wn = torch.arange(-4., 5.5, 0.0001)
     log_likelihood = mcelbo.likelihood_fn(wn)
-
     log_prior = mcelbo.p_fn(wn)
 
     log_true_posterior = log_likelihood + log_prior
