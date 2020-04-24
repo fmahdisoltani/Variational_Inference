@@ -2,8 +2,8 @@ import torch
 from utils import log_normalize
 import numpy as np
 
-def gmm_sample(means, stds, log_pais, num_samples): #TODO: change std's to log_std's
-    D = 1 # TODO: D is dimension, set it properly for multi-dimensional
+
+def gmm_sample(means, stds, log_pais, num_samples):
     samples = torch.cat([gaussian_sample(mean, std, num_samples)[:, np.newaxis, :]
                          for mean, std in zip(means, stds)], axis=1)
     # ixs = np.random.choice(k, size=num_samples, p=np.exp(log_weights))
