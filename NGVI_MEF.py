@@ -44,10 +44,8 @@ class H(nn.Module):
         return h
 
 
-def fit_gmm(num_components, beta, num_step=20):
-
+def fit_gmm(num_components, beta, num_step=20, num_samples=1):
     objective = H()
-
 
     all_deltas = torch.zeros(num_components)
     grads = torch.zeros(num_components)
@@ -64,20 +62,24 @@ def fit_gmm(num_components, beta, num_step=20):
         # component = mixture_comps.sample()
         # sampled_z = objective.q_means[component] + torch.randn(1) * objective.q_stds[component]
 
-        sampled_z = gmm_sample(objective.q_means, objective.q_stds, objective.q_log_pais, 1)
+        sampled_z = gmm_sample(objective.q_means, objective.q_stds,
+                               objective.q_log_pais, num_samples)
         sampled_z = torch.nn.Parameter(sampled_z)
+
         dx = nth_derivative(objective(sampled_z), sampled_z, 1)
         d2xx = nth_derivative(objective(sampled_z), sampled_z, 2)
         for c in range(num_components):
-
-            delta = gaussian(sampled_z, objective.q_means[c], objective.q_stds[c]) / torch.exp(objective.q_fn(sampled_z))
+            delta = gaussian(sampled_z, objective.q_means[c],
+                             objective.q_stds[c]) / torch.exp(
+                objective.q_fn(sampled_z))
             all_deltas[c] = delta
 
             # update mean and variances and ratios
             q_var = objective.q_stds[c] ** 2
             q_var = 1 / (1 / q_var + beta * delta * d2xx)
             objective.q_stds[c] = torch.sqrt(q_var)
-            objective.q_means[c] = objective.q_means[c] - beta * delta * q_var * dx
+            objective.q_means[c] = objective.q_means[
+                                       c] - beta * delta * q_var * dx
             # objective.q_stds[c] = torch.sqrt(torch.max(q_var, torch.FloatTensor([1e-6])))
 
         if i % 10 == 0:
@@ -88,24 +90,28 @@ def fit_gmm(num_components, beta, num_step=20):
             print("q.means:       {}".format(objective.q_means))
             print("q.stds:      {}".format(objective.q_stds))
             print("*" * 30)
-            beta = beta *.95
+            beta = beta * .95
 
         for c in range(num_components):
             # Update ratios
             rho[c] = objective.q_log_pais[c] - objective.q_log_pais[-1]
-            rho[c] = rho[c] - beta * 0.1 * (all_deltas[c] - all_deltas[-1]) * objective(sampled_z)
+            rho[c] = rho[c] - beta * 0.1 * (
+                        all_deltas[c] - all_deltas[-1]) * objective(sampled_z)
 
         # rho = rho - torch.max(rho)
-        objective.q_log_pais = rho - torch.logsumexp(rho, axis=0, keepdims=False)
-        #torch.log(torch.softmax(rho, dim=0))
+        objective.q_log_pais = rho - torch.logsumexp(rho, axis=0,
+                                                     keepdims=False)
+        # torch.log(torch.softmax(rho, dim=0))
 
         # grads[c] = dx
         # hess[c] = d2xx
 
         x_axis = torch.arange(-5, 5, 0.0001)
-        posterior = gmm(x_axis, objective.q_means, objective.q_stds, torch.exp(objective.q_log_pais))
+        posterior = gmm(x_axis, objective.q_means, objective.q_stds,
+                        torch.exp(objective.q_log_pais))
         normalized_posterior = posterior / torch.sum(posterior)
-        log_true_posterior = objective.likelihood_fn(x_axis) + objective.prior_fn(x_axis)
+        log_true_posterior = objective.likelihood_fn(
+            x_axis) + objective.prior_fn(x_axis)
 
         true_posterior = torch.exp(log_true_posterior)
         normalized_true_posterior = true_posterior / torch.sum(true_posterior)
@@ -122,7 +128,10 @@ def fit_gmm(num_components, beta, num_step=20):
 
 
 if __name__ == '__main__':
-    all_normalized_posteriors, normalized_true_posterior, x_axis = fit_gmm(num_step=201, num_components=2, beta=0.1)
-    plot_posteriors(all_normalized_posteriors, normalized_true_posterior, x_axis)
+    all_normalized_posteriors, normalized_true_posterior, x_axis = fit_gmm(
+        num_step=501, num_components=2, beta=0.1, num_samples=1)
+    plot_posteriors(all_normalized_posteriors, normalized_true_posterior,
+                    x_axis)
 
-    generate_animation(all_normalized_posteriors, normalized_true_posterior, x_axis,  path='./figs/gmm_3.mp4')
+    generate_animation(all_normalized_posteriors, normalized_true_posterior,
+                       x_axis, path='./figs/gmm_3.mp4')
