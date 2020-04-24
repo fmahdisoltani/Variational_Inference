@@ -13,8 +13,8 @@ def log_gaussian(x, mean, std):
     return -0.5 * torch.log(2 * np.pi * std ** 2) - (0.5 * (1 / (std ** 2)) * (x - mean) ** 2)
 
 
-def gmm(x, means, variances, pais):
-    return sum([pai * gaussian(x, mu, var) for (pai, mu, var) in zip(pais, means, variances)])
+def gmm(x, means, stds, pais):
+    return sum([pai * gaussian(x, mu, std) for (pai, mu, std) in zip(pais, means, stds)])
 
 
 def log_gmm(x, means, stds, log_pais):
